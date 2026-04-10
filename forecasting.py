@@ -8,19 +8,20 @@ Handles: data loading, preprocessing, weekly aggregation,
 Called by: app.py via run_forecast()
 """
 
+import os
 import pandas as pd
 import numpy as np
 from sklearn.linear_model import LinearRegression
 from sqlalchemy import create_engine
 
+
 # =============================================================
 # DATABASE CONNECTION
 # =============================================================
 
-DB_URL = "mysql+pymysql://root:lsNfxbtDHAVsZaAVGLPrMfiAfWEPpUYk@maglev.proxy.rlwy.net:28723/railway"
-
 def get_engine():
-    return create_engine(DB_URL)
+    db_url = os.environ.get("DATABASE_URL")
+    return create_engine(db_url)
 
 
 # =============================================================
@@ -28,9 +29,7 @@ def get_engine():
 # =============================================================
 
 def load_data(user_id):
-    """
-    Load expense transactions from Railway MySQL for a specific user.
-    """
+    """Load expense transactions from Railway MySQL for a specific user."""
     engine = get_engine()
     query = "SELECT date, category, amount FROM expenses WHERE user_id = %(user_id)s"
     df = pd.read_sql(query, engine, params={"user_id": user_id})

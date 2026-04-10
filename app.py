@@ -11,6 +11,9 @@ Endpoints:
   GET /health                → confirms server is running
 """
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from flask import Flask, jsonify, request
 from forecasting import run_forecast
 from notifications import run_notifications
@@ -24,21 +27,6 @@ app = Flask(__name__)
 
 @app.route('/predict-expenses', methods=['GET'])
 def predict_expenses():
-    """
-    Returns next-month spending predictions per category.
-
-    Requires: ?user_id=1
-    Example:  /predict-expenses?user_id=1
-
-    Response:
-    {
-        "status": "success",
-        "predictions": {
-            "Food":      { "predicted_amount": 131.60, "model_used": "linear_regression" },
-            "Transport": { "predicted_amount": 21.64,  "model_used": "linear_regression" }
-        }
-    }
-    """
     try:
         user_id = request.args.get('user_id')
         if not user_id:
@@ -59,22 +47,6 @@ def predict_expenses():
 
 @app.route('/check-notifications', methods=['GET'])
 def check_notifications():
-    """
-    Returns list of triggered notification alerts.
-
-    Requires: ?user_id=1
-    Example:  /check-notifications?user_id=1
-
-    Response:
-    {
-        "status": "success",
-        "count": 2,
-        "notifications": [
-            { "type": "budget_alert", "severity": "warning", "message": "..." },
-            { "type": "top_category", "severity": "info",    "message": "..." }
-        ]
-    }
-    """
     try:
         user_id = request.args.get('user_id')
         if not user_id:
