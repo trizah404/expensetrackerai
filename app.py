@@ -38,7 +38,8 @@ def predict_expenses():
         predictions = run_forecast(user_id)
         return jsonify({
             'status': 'success',
-            'predictions': predictions
+            'total_predicted': predictions['total_predicted'],
+            'predictions': predictions['predictions']
         }), 200
 
     except Exception as e:

@@ -175,4 +175,12 @@ def run_forecast(user_id):
                 'message': 'Prediction based on your spending trend.'
             }
 
-    return results
+    total = sum(
+        v['predicted_amount'] for v in results.values()
+        if v['predicted_amount'] is not None
+    )
+
+    return {
+        'total_predicted': round(total, 2),
+        'predictions': results
+    }
