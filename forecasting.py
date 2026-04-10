@@ -180,7 +180,15 @@ def run_forecast(user_id):
         if v['predicted_amount'] is not None
     )
 
+    valid = {k: v['predicted_amount'] for k, v in results.items() if v['predicted_amount'] is not None}
+    highest_cat = max(valid, key=valid.get) if valid else None
+    highest_amt = round(valid[highest_cat], 2) if highest_cat else None
+
     return {
         'total_predicted': round(total, 2),
+        'highest_category': {
+            'name': highest_cat,
+            'amount': highest_amt
+        },
         'predictions': results
     }

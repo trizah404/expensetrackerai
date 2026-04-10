@@ -39,6 +39,7 @@ def predict_expenses():
         return jsonify({
             'status': 'success',
             'total_predicted': predictions['total_predicted'],
+            'highest_category': predictions['highest_category'],
             'predictions': predictions['predictions']
         }), 200
 
