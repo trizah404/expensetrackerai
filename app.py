@@ -40,6 +40,10 @@ def predict_expenses():
             'status': 'success',
             'total_predicted': predictions['total_predicted'],
             'highest_category': predictions['highest_category'],
+            'lowest_category': predictions['lowest_category'],
+            'average_per_category': predictions['average_per_category'],
+            'categories_tracked': predictions['categories_tracked'],
+            'model_summary': predictions['model_summary'],
             'predictions': predictions['predictions']
         }), 200
 

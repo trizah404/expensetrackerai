@@ -13,7 +13,6 @@ import pandas as pd
 import numpy as np
 from sklearn.linear_model import LinearRegression
 from sqlalchemy import create_engine
-import google.generativeai as genai
 
 
 # =============================================================
@@ -23,24 +22,6 @@ import google.generativeai as genai
 def get_engine():
     db_url = os.environ.get("DATABASE_URL")
     return create_engine(db_url)
-
-
-# =============================================================
-# GEMINI SETUP
-# =============================================================
-
-def call_gemini(prompt):
-    """
-    Send a prompt to Gemini and return the response text.
-    Falls back to a default message if Gemini is unavailable.
-    """
-    try:
-        genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
-        model = genai.GenerativeModel("gemini-pro")
-        response = model.generate_content(prompt)
-        return response.text.strip()
-    except Exception as e:
-        return f"Suggestion unavailable: {str(e)}"
 
 
 # =============================================================
@@ -194,11 +175,11 @@ def run_forecast(user_id):
                 'message': 'Prediction based on your spending trend.'
             }
 
-    total = sum(
+    # Summary statistics
+    total = round(sum(
         v['predicted_amount'] for v in results.values()
         if v['predicted_amount'] is not None
-    )
-    total = round(total, 2)
+    ), 2)
 
     valid = {k: v['predicted_amount'] for k, v in results.items() if v['predicted_amount'] is not None}
 
@@ -217,44 +198,13 @@ def run_forecast(user_id):
         if m in model_summary:
             model_summary[m] += 1
 
-    # Add percentage share and Gemini suggestion to each prediction
+    # Add percentage share to each prediction
     for cat, v in results.items():
         amt = v['predicted_amount']
         if amt is not None and total > 0:
-            pct = round((amt / total) * 100, 1)
+            v['percentage_of_total'] = round((amt / total) * 100, 1)
         else:
-            pct = 0
-        v['percentage_of_total'] = pct
-
-        # Gemini per-category suggestion
-        if amt is None:
-            v['suggestion'] = "Log more expenses in this category to enable predictions."
-        else:
-            prompt = f"""You are a financial assistant in an expense tracking app.
-A user is predicted to spend ${amt:.2f} on {cat} next month.
-This is {pct}% of their total predicted budget of ${total:.2f}.
-Their highest spending category is {highest_cat} at ${highest_amt:.2f}.
-Their lowest is {lowest_cat} at ${lowest_amt:.2f}.
-
-Give exactly 1-2 sentences of specific, practical financial advice for this category.
-Be direct and helpful. No generic advice. No greetings or sign-offs."""
-            v['suggestion'] = call_gemini(prompt)
-
-    # Gemini global insight
-    if highest_cat and total > 0:
-        prompt = f"""You are a financial assistant in an expense tracking app.
-A user's predicted spending next month:
-- Total: ${total:.2f}
-- Highest category: {highest_cat} at ${highest_amt:.2f} ({round(highest_amt/total*100,1)}%)
-- Lowest category: {lowest_cat} at ${lowest_amt:.2f}
-- Average per category: ${avg_per_cat:.2f}
-- Categories: {', '.join(f'{k}: ${v["predicted_amount"]:.2f}' for k, v in results.items() if v["predicted_amount"] is not None)}
-
-Write exactly 2 sentences summarising their financial outlook for next month.
-Be specific, encouraging, and actionable. No greetings or sign-offs."""
-        insight = call_gemini(prompt)
-    else:
-        insight = "Keep logging your expenses consistently to get more accurate predictions each month."
+            v['percentage_of_total'] = 0
 
     return {
         'total_predicted': total,
@@ -263,6 +213,5 @@ Be specific, encouraging, and actionable. No greetings or sign-offs."""
         'average_per_category': avg_per_cat,
         'categories_tracked': categories_tracked,
         'model_summary': model_summary,
-        'insight': insight,
         'predictions': results
     }
