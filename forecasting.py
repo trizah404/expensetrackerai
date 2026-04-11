@@ -36,11 +36,11 @@ def call_gemini(prompt):
     """
     try:
         genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        model = genai.GenerativeModel("gemini-pro")
         response = model.generate_content(prompt)
         return response.text.strip()
-    except Exception:
-        return "Unable to generate suggestion at this time."
+    except Exception as e:
+        return f"Suggestion unavailable: {str(e)}"
 
 
 # =============================================================
