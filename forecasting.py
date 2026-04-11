@@ -13,6 +13,7 @@ import pandas as pd
 import numpy as np
 from sklearn.linear_model import LinearRegression
 from sqlalchemy import create_engine
+import google.generativeai as genai
 
 
 # =============================================================
@@ -22,6 +23,24 @@ from sqlalchemy import create_engine
 def get_engine():
     db_url = os.environ.get("DATABASE_URL")
     return create_engine(db_url)
+
+
+# =============================================================
+# GEMINI SETUP
+# =============================================================
+
+def call_gemini(prompt):
+    """
+    Send a prompt to Gemini and return the response text.
+    Falls back to a default message if Gemini is unavailable.
+    """
+    try:
+        genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        response = model.generate_content(prompt)
+        return response.text.strip()
+    except Exception:
+        return "Unable to generate suggestion at this time."
 
 
 # =============================================================
@@ -179,16 +198,71 @@ def run_forecast(user_id):
         v['predicted_amount'] for v in results.values()
         if v['predicted_amount'] is not None
     )
+    total = round(total, 2)
 
     valid = {k: v['predicted_amount'] for k, v in results.items() if v['predicted_amount'] is not None}
+
     highest_cat = max(valid, key=valid.get) if valid else None
     highest_amt = round(valid[highest_cat], 2) if highest_cat else None
 
+    lowest_cat = min(valid, key=valid.get) if valid else None
+    lowest_amt = round(valid[lowest_cat], 2) if lowest_cat else None
+
+    avg_per_cat = round(total / len(valid), 2) if valid else 0
+    categories_tracked = len(results)
+
+    model_summary = {'linear_regression': 0, 'weighted_moving_average': 0, 'insufficient_data': 0}
+    for v in results.values():
+        m = v['model_used']
+        if m in model_summary:
+            model_summary[m] += 1
+
+    # Add percentage share and Gemini suggestion to each prediction
+    for cat, v in results.items():
+        amt = v['predicted_amount']
+        if amt is not None and total > 0:
+            pct = round((amt / total) * 100, 1)
+        else:
+            pct = 0
+        v['percentage_of_total'] = pct
+
+        # Gemini per-category suggestion
+        if amt is None:
+            v['suggestion'] = "Log more expenses in this category to enable predictions."
+        else:
+            prompt = f"""You are a financial assistant in an expense tracking app.
+A user is predicted to spend ${amt:.2f} on {cat} next month.
+This is {pct}% of their total predicted budget of ${total:.2f}.
+Their highest spending category is {highest_cat} at ${highest_amt:.2f}.
+Their lowest is {lowest_cat} at ${lowest_amt:.2f}.
+
+Give exactly 1-2 sentences of specific, practical financial advice for this category.
+Be direct and helpful. No generic advice. No greetings or sign-offs."""
+            v['suggestion'] = call_gemini(prompt)
+
+    # Gemini global insight
+    if highest_cat and total > 0:
+        prompt = f"""You are a financial assistant in an expense tracking app.
+A user's predicted spending next month:
+- Total: ${total:.2f}
+- Highest category: {highest_cat} at ${highest_amt:.2f} ({round(highest_amt/total*100,1)}%)
+- Lowest category: {lowest_cat} at ${lowest_amt:.2f}
+- Average per category: ${avg_per_cat:.2f}
+- Categories: {', '.join(f'{k}: ${v["predicted_amount"]:.2f}' for k, v in results.items() if v["predicted_amount"] is not None)}
+
+Write exactly 2 sentences summarising their financial outlook for next month.
+Be specific, encouraging, and actionable. No greetings or sign-offs."""
+        insight = call_gemini(prompt)
+    else:
+        insight = "Keep logging your expenses consistently to get more accurate predictions each month."
+
     return {
-        'total_predicted': round(total, 2),
-        'highest_category': {
-            'name': highest_cat,
-            'amount': highest_amt
-        },
+        'total_predicted': total,
+        'highest_category': {'name': highest_cat, 'amount': highest_amt},
+        'lowest_category': {'name': lowest_cat, 'amount': lowest_amt},
+        'average_per_category': avg_per_cat,
+        'categories_tracked': categories_tracked,
+        'model_summary': model_summary,
+        'insight': insight,
         'predictions': results
     }
