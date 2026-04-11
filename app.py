@@ -17,8 +17,12 @@ load_dotenv()
 from flask import Flask, jsonify, request
 from forecasting import run_forecast
 from notifications import run_notifications
+from flask_cors import CORS
+
 
 app = Flask(__name__)
+CORS(app)
+
 
 
 # =============================================================
